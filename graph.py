@@ -19,23 +19,22 @@ def read_data(filename):
     return data
 
 def create_graph(data):
-    # create graph
     G = nx.Graph()
-    # get id and check if in graph
     for node in data:
         x1 = float(data[node]['x'])
         y1 = float(data[node]['y'])
+        
         if not G.has_node(node):
-            # if not in graph add it and its neighbors
-            G.add_node(node,x=x1,y=y1)
-            for neighbor in data[node]['neighbors']:
-                x2 =float(data[neighbor]['x'])
-                y2 = float(data[neighbor]['y'])
-                if not G.has_node(neighbor):
-                    G.add_node(neighbor,x=x2,y=y2)
-                # we need to add egde
-                # first calculate distance
-                G.add_edge(node,neighbor,distance = calculate_distance(x1,y1,x2,y2),pheromones=10)
+            G.add_node(node, id=node, x=x1, y=y1)
+            
+        for neighbor in data[node]['neighbors']:
+            x2 = float(data[neighbor]['x'])
+            y2 = float(data[neighbor]['y'])
+            
+            if not G.has_node(neighbor):
+                G.add_node(neighbor, id = neighbor, x=x2, y=y2)
+                
+            G.add_edge(node, neighbor, distance=calculate_distance(x1, y1, x2, y2), pheromones=10)
     return G
 
 def calculate_distance(x1,y1,x2,y2):
@@ -58,15 +57,14 @@ def algorithm(id_start,id_end):
     graph = create_graph(data)
     node= graph.nodes[id_start]
     print(node)
-    node_end, attr = graph.nodes[id_end]  
+    node_end = graph.nodes[id_end]  
     for iter in range(iterations):
         paths= []
         for ant in range(m):
             path = {'nodes':[],'distance':0}
             path['nodes'].append(node)
             while node != graph.nodes[id_end]:
-                print(graph.neighbors(id_start))
-                neighbors = graph.neighbors(id_start)
+                neighbors =  list(graph.neighbors(node['id']))
                 # ceo cvor sa id x i y
                 node, distance = get_next_node(node,neighbors,graph,node_end)
                 path['nodes'].append(node)
@@ -98,8 +96,11 @@ def get_probabilities(node,neighbors,graph,node_end):
     probabilities = {}
     sum = 0
     for neighbor in neighbors:
-        edge = graph.edges[node, neighbor]
-        probabilities[neighbor] = get_probability_numerator(edge,node,neighbor,node_end)
+        neighbor = graph.nodes[neighbor]
+        pheromones = graph.edges[node,neighbor]['pheromones']
+        distance = graph.edges[node][neighbor]['distance']
+
+        probabilities[neighbor] = get_probability_numerator(pheromones,distance,node,neighbor,node_end)
         sum += probabilities[neighbor]
     sum_of_probabilities = 0
     for neighbor in probabilities:
@@ -107,8 +108,8 @@ def get_probabilities(node,neighbors,graph,node_end):
         sum_of_probabilities += probabilities[neighbor]
     return probabilities , sum_of_probabilities
     
-def get_probability_numerator(edge,node,neighbor,node_end):
-    return (edge['pheromones']**alpha) * (1/edge['distance']**beta) * (1/(1+get_teta(node['x'],node['y'],neighbor['x'],neighbor['y'],node_end)))**gamma
+def get_probability_numerator(pheromones,distance,node,neighbor,node_end):
+    return (pheromones**alpha) * ((1/distance)**beta) * ((1/(1+get_teta(node['x'],node['y'],neighbor['x'],neighbor['y'],node_end)))**gamma)
 
 def get_teta(x1,y1,x2,y2,node_end):
     k1 = (y2 - y1)/(x2 - x1)
