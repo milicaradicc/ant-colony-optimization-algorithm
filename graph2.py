@@ -26,14 +26,14 @@ def create_graph(data):
         y1 = float(data[node]['y'])
         
         if not G.has_node(node):
-            G.add_node(node, id=node, x=x1, y=y1)
+            G.add_node(node, id=node, x=x1, y=y1, status = 0)
             
         for neighbor in data[node]['neighbors']:
             x2 = float(data[neighbor]['x'])
             y2 = float(data[neighbor]['y'])
             
             if not G.has_node(neighbor):
-                G.add_node(neighbor, id = neighbor, x=x2, y=y2)
+                G.add_node(neighbor, id = neighbor, x=x2, y=y2, status=0)
                 
             G.add_edge(node, neighbor, distance=calculate_distance(x1, y1, x2, y2), pheromones=10)
     return G
@@ -41,8 +41,8 @@ def create_graph(data):
 def calculate_distance(x1,y1,x2,y2):
     return math.sqrt((x1-x2)**2+(y1-y2)**2)
 
-m = 3000
-iterations = 10
+m = 1000
+iterations = 1
 alpha = 1
 beta = 2
 gamma = 2
@@ -59,52 +59,45 @@ def algorithm(id_start,id_end):
     opt_paths = [] 
     for iter in range(iterations):
         paths= []
-        print(iter)
-
         for ant in range(m):
-            previous_node_id = id_start
-            stopped = 0
-            repetition={}
+            print(ant)
+
             path = {'nodes':[],'distance':0}
             path['nodes'].append(node)
+            stop = 0
+            i=0
             while node != graph.nodes[id_end]:
+                i+=1
                 neighbors =  list(graph.neighbors(node['id']))
                 # ceo cvor sa id x i y
                 next_node_id, distance = get_next_node(node,neighbors,graph,node_end)
-                if previous_node_id == next_node_id:
-                    rep = 0
-                    if previous_node_id in repetition:
-                        if node['id'] in repetition[previous_node_id]:
-                            repetition[previous_node_id][node['id']] += 1
-                            rep = repetition[previous_node_id][node['id']]
-                    elif node['id'] in repetition:
-                        if previous_node_id in repetition[node['id']]:
-                            repetition[node['id']][previous_node_id] += 1
-                            rep = repetition[node['id']][previous_node_id]
-                    else:
-                        repetition[previous_node_id] = {}
-                        repetition[previous_node_id][node['id']] = 1
-                        rep = 1
-                    if rep >= 2000:
-                        stopped = 1
-                        break                        
-                previous_node_id = node['id']
+                new_next_node_ids = []
+                if len(path['nodes']) >= 3:
+                    if graph.nodes[next_node_id] == path['nodes'][-2]:
+                        for neighbor in neighbors:
+                            neighbor_node = graph.nodes[neighbor]
+                            if neighbor_node == path['nodes'][-2]:
+                                continue
+                            new_next_node_ids.append(neighbor)
+
+                        if len(new_next_node_ids) == 0:
+                            stop = 1
+                            break 
+                        if len(new_next_node_ids) == 1:
+                            next_node_id, distance = new_next_node_ids[0], graph.edges[node['id'], new_next_node_ids[0]]['distance']
+                        else:
+                            next_node_id, distance = get_next_node(node,new_next_node_ids,graph,node_end)
+                if stop:
+                    return algorithm(path['nodes'][-3]['id'], id_end)
                 node = graph.nodes[next_node_id]
                 path['nodes'].append(node)
                 path['distance'] += distance
-            if not stopped:
-                print('pronbasao', ant)
-                paths.append(path)
-                node= graph.nodes[id_start]
-                print('pronasao u:',i)
-                break
-
+            paths.append(path)
+            node= graph.nodes[id_start]
         if paths != []:
             opt_paths.append(update_pheromones(graph,paths)[0])
         if check_for_stop(opt_paths):
             break
-    if not opt_paths:
-        print("Dozvoljena duzina putanje je premala, povecajte je")
     return opt_paths[len(opt_paths)-1]
      
 def check_for_stop(opt_paths):
@@ -178,11 +171,15 @@ def get_next_node(node,neighbors,graph,node_end):
     random_number = random.random()
     probabilities = get_probabilities(node,neighbors,graph,node_end)
     probabilities = {k: v for k, v in sorted(probabilities.items(), key=lambda item: item[1])}
+    last = 0
+    current = 0
     for neighbor_id in probabilities:
-        if probabilities[neighbor_id] >= random_number:
+        current = probabilities[neighbor_id] + last
+        if current >= random_number:
             break
+        else:
+            last = current
     return neighbor_id, graph.edges[node['id'], neighbor_id]['distance']
-
 
 def main():
     pocetno = time.time()
