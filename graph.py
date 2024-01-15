@@ -183,12 +183,12 @@ def algorithm(id_start,id_end):
                         path['distance'] += distance
                     number.append(next_node_id)
                     f.write(str(next_node_id)+'\n')
-                    if i == 1000:
-                        number_counts = Counter(number)
+                    # if i == 1000:
+                    #     number_counts = Counter(number)
 
-                        for number, count in number_counts.items():
-                            print(f"{number}: {count} times")
-                        return
+                    #     for number, count in number_counts.items():
+                    #         print(f"{number}: {count} times")
+                    #     return
                             
 
                     #         if len(new_next_node_ids) == 0:
