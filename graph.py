@@ -3,6 +3,7 @@ import networkx as nx
 import math
 import random
 import time
+from collections import Counter
 
 def read_data(filename):
     data = {}
@@ -26,14 +27,14 @@ def create_graph(data):
         y1 = float(data[node]['y'])
         
         if not G.has_node(node):
-            G.add_node(node, id=node, x=x1, y=y1)
+            G.add_node(node, id=node, x=x1, y=y1, status = 0)
             
         for neighbor in data[node]['neighbors']:
             x2 = float(data[neighbor]['x'])
             y2 = float(data[neighbor]['y'])
             
             if not G.has_node(neighbor):
-                G.add_node(neighbor, id = neighbor, x=x2, y=y2)
+                G.add_node(neighbor, id = neighbor, x=x2, y=y2, status=0)
                 
             G.add_edge(node, neighbor, distance=calculate_distance(x1, y1, x2, y2), pheromones=10)
     return G
@@ -41,8 +42,8 @@ def create_graph(data):
 def calculate_distance(x1,y1,x2,y2):
     return math.sqrt((x1-x2)**2+(y1-y2)**2)
 
-m = 3000
-iterations = 10
+m = 30
+iterations = 1
 alpha = 1
 beta = 2
 gamma = 2
@@ -50,63 +51,170 @@ Q = 50
 rho = 0.8 #persistence coefficient
 
 
-
 def algorithm(id_start,id_end):
-    data = read_data("data_path_nodes.txt")
-    graph = create_graph(data)
-    node= graph.nodes[id_start]
-    node_end = graph.nodes[id_end] 
-    opt_paths = [] 
-    for iter in range(iterations):
-        paths= []
-        print(iter)
+    with open('nodes.txt', 'w') as f:
+        data = read_data("data_path_nodes.txt")
+        graph = create_graph(data)
+        node= graph.nodes[id_start]
+        node_end = graph.nodes[id_end] 
+        opt_paths = [] 
+        for iter in range(iterations):
+            paths= []
+            number=[]
+            for ant in range(m):
+                print(ant)
 
-        for ant in range(m):
-            previous_node_id = id_start
-            stopped = 0
-            repetition={}
-            path = {'nodes':[],'distance':0}
-            path['nodes'].append(node)
-            while node != graph.nodes[id_end]:
-                neighbors =  list(graph.neighbors(node['id']))
-                # ceo cvor sa id x i y
-                next_node_id, distance = get_next_node(node,neighbors,graph,node_end)
-                if previous_node_id == next_node_id:
-                    rep = 0
-                    if previous_node_id in repetition:
-                        if node['id'] in repetition[previous_node_id]:
-                            repetition[previous_node_id][node['id']] += 1
-                            rep = repetition[previous_node_id][node['id']]
-                    elif node['id'] in repetition:
-                        if previous_node_id in repetition[node['id']]:
-                            repetition[node['id']][previous_node_id] += 1
-                            rep = repetition[node['id']][previous_node_id]
-                    else:
-                        repetition[previous_node_id] = {}
-                        repetition[previous_node_id][node['id']] = 1
-                        rep = 1
-                    if rep >= 2000:
-                        stopped = 1
-                        break                        
-                previous_node_id = node['id']
-                node = graph.nodes[next_node_id]
+                path = {'nodes':[],'distance':0}
                 path['nodes'].append(node)
-                path['distance'] += distance
-            if not stopped:
-                print('pronbasao', ant)
+                i = 0
+                while node != graph.nodes[id_end]:
+                    print(i)
+                    i+=1
+                    if len(path['nodes']) >= 3 and path['nodes'][-1]['id'] == path['nodes'][-2]['id']:
+                        print('')
+                    neighbors =  list(graph.neighbors(node['id']))
+                    if graph.nodes[id_end] in neighbors:
+                        path['nodes'].append(graph.nodes[id_end])
+                        path['distance'] += graph.edges[path['nodes'][-1]['id'], id_end]['distance']
+                        break
+
+                    # ceo cvor sa id x i y
+                    next_node_id, distance = get_next_node(node,neighbors,graph,node_end)
+                    if len(list(graph.neighbors(next_node_id)))==1:
+                        while len(list(graph.neighbors(next_node_id)))==1:
+                            for neighbor in neighbors:
+                                print(neighbor)
+                                if neighbor != next_node_id and len(list(graph.nodes(neighbor)))!=1:
+                                    next_node_id = neighbor
+                                    node = graph.nodes[next_node_id]
+                                    path['nodes'].append(node)
+                                    path['distance'] += graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                    break
+                            path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                            del path['nodes'][-1]
+                            next_node_id = path['nodes'][-1]['id']
+
+                    elif len(path['nodes']) >= 4:
+                        if graph.nodes[next_node_id] == path['nodes'][-2]:
+                            if len(neighbors) != 1:
+                                while True:
+                                    found = 0
+                                    for neighbor in neighbors:
+                                        if graph.nodes[id_end] in neighbors:
+                                            path['nodes'].append(graph.nodes[id_end])
+                                            path['distance'] += graph.edges[path['nodes'][-1]['id'], id_end]['distance']
+                                            break
+
+                                        next_node_id = graph.nodes[neighbor]['id']
+                                        if next_node_id != path['nodes'][-2]['id'] and next_node_id != path['nodes'][-3]['id']:
+                                            node = graph.nodes[next_node_id]
+                                            path['nodes'].append(node)
+                                            path['distance'] += graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+
+                                            found = 1
+                                            break
+                                    if not found:
+                                        path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                        del path['nodes'][-1]
+                                    break
+                            else:
+                                path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                del path['nodes'][-1]
+                                # path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                # del path['nodes'][-1]
+                                print(len(list(graph.neighbors(path['nodes'][-1]['id']))))
+                                print(len(list(graph.neighbors(path['nodes'][-1]['id'])))==1)
+                                while len(list(graph.neighbors(path['nodes'][-1]['id'])))==1:
+                                    path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                    del path['nodes'][-1]
+                                    i+=1
+                                next_node_id = path['nodes'][-1]['id']
+                                node = graph.nodes[next_node_id]
+                        elif(graph.nodes[next_node_id] == path['nodes'][-3]):
+                            print(path['nodes'][-1]['id'])
+                            neighbors = list(graph.neighbors(path['nodes'][-1]['id']))
+                            if len(neighbors) == 1:
+                                path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                del path['nodes'][-1]
+                                i = 0
+                                while len(list(graph.neighbors(path['nodes'][-1-i]['id'])))==1:
+                                    path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                    del path['nodes'][-1]
+                                    i+=1
+                                next_node_id = path['nodes'][-4-i]['id']
+                                node = graph.nodes[next_node_id]
+
+
+
+                            else:
+                                for neighbor in neighbors:
+                                    if graph.nodes[id_end] in neighbors:
+                                        path['nodes'].append(graph.nodes[id_end])
+                                        path['distance'] += graph.edges[path['nodes'][-1]['id'], id_end]['distance']
+                                        break
+
+                                    next_node_id = graph.nodes[neighbor]['id']
+                                    if next_node_id != path['nodes'][-2]['id'] :
+                                        if  next_node_id != path['nodes'][-4]['id']:
+                                            node = graph.nodes[next_node_id]
+                                            path['nodes'].append(node)
+                                            path['distance'] += graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+
+                                            break
+                                        else:
+                                            i = 5
+                                            while len(list(graph.neighbors(path['nodes'][-i]['id'])))==1:
+                                                path['distance'] -=  graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                                                del path['nodes'][-1]
+                                                i+=1
+                                            next_node_id = path['nodes'][-1]['id']
+                                            node = graph.nodes[next_node_id]
+                                            path['nodes'].append(node)
+                                            path['distance'] += graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+
+                                            break
+                        else:
+                            node = graph.nodes[next_node_id]
+                            path['nodes'].append(node)
+                            path['distance'] += distance
+                    else:
+                        node = graph.nodes[next_node_id]
+                        path['nodes'].append(node)
+                        path['distance'] += distance
+                    number.append(next_node_id)
+                    f.write(str(next_node_id)+'\n')
+                    if i == 1000:
+                        number_counts = Counter(number)
+
+                        for number, count in number_counts.items():
+                            print(f"{number}: {count} times")
+                        return
+                            
+
+                    #         if len(new_next_node_ids) == 0:
+                    #             num_ret_steps = 2
+                    #             # if num_returns > 2 and len(new_next_node_ids) > 10:
+                    #             #     num_ret_steps = 10
+                    #             node_id = path['nodes'][-1-num_ret_steps]['id']
+                    #             node = graph.nodes[node_id]
+                    #             for i in range(num_ret_steps):
+                    #                 path['distance'] -= graph.edges[path['nodes'][-1]['id'], path['nodes'][-2]['id']]['distance']
+                    #                 del path['nodes'][-1]
+                    #             num_returns += 1
+                    #             continue
+                    #         if len(new_next_node_ids) == 1:
+                    #             next_node_id, distance = new_next_node_ids[0], graph.edges[node['id'], new_next_node_ids[0]]['distance']
+                    #         else:
+                    #             next_node_id, distance = get_next_node(node,new_next_node_ids,graph,node_end)
+                    
+                    
                 paths.append(path)
                 node= graph.nodes[id_start]
-                print('pronasao u:',i)
-                break
-
-        if paths != []:
-            opt_paths.append(update_pheromones(graph,paths)[0])
-        if check_for_stop(opt_paths):
-            break
-    if not opt_paths:
-        print("Dozvoljena duzina putanje je premala, povecajte je")
+            if paths:
+                opt_paths.append(update_pheromones(graph,paths)[0])
+            
     return opt_paths[len(opt_paths)-1]
-     
+    
 def check_for_stop(opt_paths):
     number_of_opt_paths = len(opt_paths)
     if number_of_opt_paths >= 10:
@@ -175,14 +283,18 @@ def get_next_node(node,neighbors,graph,node_end):
     # 0.18 - 0.5
     # 0.51 - 1
     # random [0,1] = 0.24
-    random_number = random.random()
+    random_number = random.uniform(0.2, 1.0)
     probabilities = get_probabilities(node,neighbors,graph,node_end)
     probabilities = {k: v for k, v in sorted(probabilities.items(), key=lambda item: item[1])}
+    last = 0
+    current = 0
     for neighbor_id in probabilities:
-        if probabilities[neighbor_id] >= random_number:
+        current = probabilities[neighbor_id] + last
+        if current >= random_number:
             break
+        else:
+            last = current
     return neighbor_id, graph.edges[node['id'], neighbor_id]['distance']
-
 
 def main():
     pocetno = time.time()
